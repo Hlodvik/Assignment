@@ -1,0 +1,293 @@
+import os
+import sys
+class Task:
+    def __init__(self, name, description, urgency="normal", status="new"):
+        self.name = name
+        self.description = description
+        self.urgency = urgency
+        self.status = status
+
+    def __str__(self):
+        return (f"Task: {self.name}, Description: {self.description}, "
+                f"Urgency: {self.urgency}, Status: {self.status}")
+
+class TaskList:
+    def __init__(self):
+        self.tasks = []
+
+    def add_task(self):
+        """Add tasks in a loop until the user is done."""
+        while True:
+            task_number = len(self.tasks) + 1
+            task_name = f"Task {task_number}"
+            description = input(f"Enter a description for {task_name} (or type 'done' to finish): ").strip()
+            if description.lower() == "done":
+                print("Finished adding tasks.")
+                self.save_to_file()
+                break
+            urgency = input("Enter urgency level (low, normal, high) [default: normal]: ").strip() or "normal"
+            new_task = Task(name=task_name, description=description, urgency=urgency)
+            self.tasks.append(new_task)
+            print(f"'{task_name}' added successfully!\n")
+
+
+    def load_from_file(self, filename):
+        """Load tasks from a given .txt file (full path)."""
+        if not os.path.isfile(filename):
+            print(f"Error: File '{filename}' not found.")
+            return
+
+        try:
+            with open(filename, "r") as file:
+                lines = file.readlines()
+                
+                if len(lines) < 1:
+                    print("Invalid file format. The file should have a task list name")
+                    return
+                # Clear current tasks
+                self.tasks.clear()
+
+                for line in lines[1:]:
+                    parts = line.strip().split("|")
+                    if len(parts) == 4:
+                        name, description, urgency, status = parts
+                        task = Task(name, description, urgency, status)
+                        self.tasks.append(task)
+                    else:
+                        # Checks if line has four pipes
+                        print("Invalid file format. Each task line must have 4 fields.")
+                        self.tasks.clear()  # Clear task if format is invalid
+                        return
+
+            print(f"Task list loaded successfully from '{filename}'.")
+            self.after_load_actions()
+        except Exception as e:
+            print(f"An error occurred while loading '{filename}': {e}")
+
+    def save_to_file(self):
+        while True:
+            print("Directory Options:")
+            print("1. Use an existing directory")
+            print("2. Create a new directory")
+            choice = input("Enter your choice (1 or 2): ").strip()
+
+            if choice == "1":
+                directory = input("Enter the existing directory path: ").strip()
+                if os.path.isdir(directory):
+                    break
+                else:
+                    print("Directory does not exist. Please try again.")
+            elif choice == "2":
+                directory = input("Enter the directory path to create: ").strip()
+                try:
+                    os.makedirs(directory, exist_ok=True)
+                    print(f"Directory '{directory}' created successfully.")
+                    break
+                except Exception as e:
+                    print(f"Could not create directory: {e}")
+            else:
+                print("Invalid choice. Please enter 1 or 2.")
+
+        task_list_name = input("Enter a name for this task list: ").strip()
+
+        while True:
+            file_name = input("Enter the file name to save the task list (e.g. tasks.txt): ").strip()
+            full_path = os.path.join(directory, file_name)
+
+            if os.path.exists(full_path):
+                overwrite = input(f"File '{full_path}' already exists. Overwrite? (y/n): ").strip().lower()
+                if overwrite == 'y':
+                    break
+                else:
+                    print("Choose a different file name.")
+            else:
+                break
+
+        with open(full_path, "w") as file:
+            # Write the user-defined name of the task list as the first line
+            file.write(task_list_name + "\n")
+            # Write the column header line
+            file.write("Task Name|Description|Urgency|Status\n")
+            # Write each task
+            for task in self.tasks:
+                file.write(f"{task.name}|{task.description}|{task.urgency}|{task.status}\n")
+
+        print(f"Task list saved successfully to '{full_path}'.")
+
+    def edit_single_task(self, index): ###Edit or delete a task###
+        
+        
+        while True:# If task was deleted in a previous iteration of the loop, break out           
+            if index >= len(self.tasks):
+                print("The selected task no longer exists.")
+                break
+
+            task = self.tasks[index]
+            print(f"\nEditing {task.name}:")
+            print(task)
+            print("Choose an action:")
+            print("1. Change Description")
+            print("2. Change Urgency")
+            print("3. Change Status")
+            print("4. Delete this Task")
+            print("5. Finish Editing this Task")
+
+            action = input("Enter your choice: ").strip()
+            if action == "1":
+                new_description = input(f"Enter new description (leave blank to keep '{task.description}'): ").strip()
+                if new_description:
+                    task.description = new_description
+                print(f"Task '{task.name}' description updated.")
+            elif action == "2":
+                new_urgency = input(f"Enter new urgency (low, normal, high) [Current: {task.urgency}]: ").strip()
+                if new_urgency:
+                    task.urgency = new_urgency
+                print(f"Task '{task.name}' urgency updated.")
+            elif action == "3":
+                new_status = input(f"Enter new status (new, completed, missed) [Current: {task.status}]: ").strip()
+                if new_status in ["new", "completed", "missed"]:
+                    task.status = new_status
+                    print(f"Task '{task.name}' status updated.")
+                else:
+                    print("Invalid status. Please try again.")
+            elif action == "4":
+                confirm = input(f"Are you sure you want to delete '{task.name}'? (y/n): ").strip().lower()
+                if confirm == "y":
+                    del self.tasks[index]
+                    print("Task deleted.")
+                    break  # Break out after deleting the task
+            elif action == "5":
+                print("Finished editing this task.")
+                self.save_to_file()
+                break
+            else:
+                print("Invalid choice, please try again.")
+
+    def after_load_actions(self):
+        while True:
+            print("\nCurrent Task List:")
+            if self.tasks:
+                for task in self.tasks:
+                    print(task)
+            else:
+                print("No tasks found.")
+
+            print("\nWhat would you like to do now?")
+            print("1. Edit tasks")
+            print("2. Load a new task list")
+            print("3. Exit")
+
+            choice = input("Enter your choice: ").strip()
+            if choice == "1":
+                self.edit_tasks()
+            elif choice == "2":
+                
+                self.load_from_file()
+                break
+            elif choice == "3":
+                print("Exiting now.")
+                sys.exit()
+                break
+            else:
+                print("Invalid choice, please try again.")
+
+    def edit_tasks(self):
+        """Allow the user to select a task to edit."""
+        if not self.tasks:
+            print("No tasks available to edit.")
+            return
+
+        print("\nCurrent Tasks:")
+        for i, task in enumerate(self.tasks, start=1):
+            print(f"{i}. {task}")
+
+        while True:
+            choice = input("Enter the number of the task you want to edit (or 'done' to finish): ").strip()
+            if choice.lower() == 'done':
+                break
+            try:
+                index = int(choice) - 1
+                if 0 <= index < len(self.tasks):
+                    self.edit_single_task(index)
+                else:
+                    print("Invalid task number.")
+            except ValueError:
+                print("Please enter a valid number or 'done'.")
+
+    def __str__(self):
+        """String representation of the TaskList."""
+        return "\n".join(str(task) for task in self.tasks)
+######################################################################################################
+
+class Menu:
+    def __init__(self):
+        self.task_list = TaskList()
+
+    def display_welcome(self):
+        """Display a welcome message to the user."""
+        print("Welcome to the Task Manager Application!")
+        print("What would you like to do?")
+
+    def load_task_list(self):
+        """Load a task list from a user-specified directory."""
+        while True:
+            directory = input("Enter the directory path to load .txt files from: ").strip()
+            if not os.path.isdir(directory):
+                print("Invalid directory. Please try again.")
+            else:
+                break
+
+        os.chdir(directory)
+
+        print("\nHere are the available task list files in this directory:")
+        files = [f for f in os.listdir() if f.endswith(".txt")]
+
+        if not files:
+            print("No .txt files found in the specified directory.")
+            return
+
+        for idx, file in enumerate(files, start=1):
+            print(f"{idx}. {file}")
+
+        while True:
+            try:
+                file_choice = int(input("Enter the number of the file you want to load: "))
+                if 1 <= file_choice <= len(files):
+                    selected_file = files[file_choice - 1]
+                    self.task_list.load_from_file(selected_file)
+                    break
+                else:
+                    print("Invalid number. Please try again.")
+            except ValueError:
+                print("Please enter a valid number.")
+
+    def start(self):
+        """Start the menu loop."""
+        self.display_welcome()
+        while True:
+            print("\nOptions:")
+            print("1. Load a task list from a file")
+            print("2. Create a new task list")
+            print("3. Exit")
+
+            choice = input("Enter the number of your choice: ").strip()
+            if choice == "1":
+                self.load_task_list()
+                print("\nCurrent Task List:")
+                print(self.task_list if self.task_list.tasks else "No tasks found in the loaded file.")
+            elif choice == "2":
+                print("\nCreating a new task list:")
+                self.task_list.add_task()
+            elif choice == "3":
+                print("Goodbye!")
+                break
+            else:
+                print("Invalid choice. Please try again.")
+
+######################################################################################################
+
+if __name__ == "__main__":
+    menu = Menu()
+    menu.start()
+                        
+
